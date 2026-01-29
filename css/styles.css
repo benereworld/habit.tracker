@@ -315,6 +315,71 @@ body {
 }
 
 /* ========================================
+   Week Days Navigation (Tab 1)
+   ======================================== */
+.week-days-section {
+    margin-bottom: var(--spacing-md);
+}
+
+.week-days-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-sm);
+    gap: var(--spacing-xs);
+}
+
+.week-day-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.week-day-item:hover {
+    background: var(--color-gray-6);
+}
+
+.week-day-item.selected {
+    background: var(--color-primary);
+    color: white;
+    transform: scale(1.05);
+    box-shadow: var(--shadow-md);
+}
+
+.week-day-item.today:not(.selected) {
+    background: var(--color-primary-faded);
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.week-day-label {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.week-day-number {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+}
+
+.week-day-item.selected .week-day-label,
+.week-day-item.selected .week-day-number {
+    color: white;
+}
+
+/* ========================================
    Progress Section
    ======================================== */
 .progress-section {
@@ -386,13 +451,16 @@ body {
    Habits List
    ======================================== */
 .habits-section {
-    background: var(--bg-secondary);
+    background: transparent;
     border-radius: var(--border-radius-lg);
-    overflow: hidden;
+    overflow: visible;
 }
 
 .habits-list {
     list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
 }
 
 .habit-item {
@@ -400,26 +468,43 @@ body {
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--separator-color);
+    background: var(--habit-color-faded, var(--color-primary-faded));
+    border-bottom: none;
+    border-radius: var(--border-radius-lg);
     cursor: pointer;
-    transition: background-color var(--transition-fast);
+    transition: all var(--transition-fast);
     -webkit-user-select: none;
     user-select: none;
-}
-
-.habit-item:last-child {
-    border-bottom: none;
+    box-shadow: var(--shadow-sm);
 }
 
 .habit-item:active {
-    background: var(--color-gray-6);
+    transform: scale(0.98);
+}
+
+.habit-item.completed {
+    background: var(--habit-color, var(--color-primary));
+}
+
+.habit-item.completed .habit-name,
+.habit-item.completed .habit-meta,
+.habit-item.completed .habit-streak,
+.habit-item.completed .habit-weekly-progress {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.habit-item.completed .habit-icon {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.habit-item.completed .habit-actions {
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .habit-checkbox {
     position: relative;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     flex-shrink: 0;
 }
 
@@ -436,29 +521,43 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    width: 28px;
-    height: 28px;
-    border: 2px solid var(--color-gray-3);
-    border-radius: var(--border-radius-full);
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--habit-color, var(--color-primary));
+    border-radius: var(--border-radius-sm);
     transition: all var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;
+    background: var(--bg-secondary);
+}
+
+.habit-checkbox-visual::before {
+    content: '+';
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--habit-color, var(--color-primary));
+    transition: all var(--transition-fast);
 }
 
 .habit-checkbox input:checked + .habit-checkbox-visual {
-    background: var(--habit-color, var(--color-primary));
-    border-color: var(--habit-color, var(--color-primary));
+    background: white;
+    border-color: white;
+}
+
+.habit-checkbox input:checked + .habit-checkbox-visual::before {
+    content: '';
 }
 
 .habit-checkbox-visual svg {
-    width: 16px;
-    height: 16px;
-    stroke: white;
+    width: 18px;
+    height: 18px;
+    stroke: var(--habit-color, var(--color-primary));
     stroke-width: 3;
     opacity: 0;
     transform: scale(0.5);
     transition: all var(--transition-fast);
+    position: absolute;
 }
 
 .habit-checkbox input:checked + .habit-checkbox-visual svg {
@@ -494,8 +593,8 @@ body {
 }
 
 .habit-item.completed .habit-name {
-    color: var(--text-tertiary);
-    text-decoration: line-through;
+    color: rgba(255, 255, 255, 0.95);
+    text-decoration: none;
 }
 
 .habit-meta {
@@ -521,9 +620,14 @@ body {
 .habit-weekly-progress {
     font-size: var(--font-size-xs);
     color: var(--text-tertiary);
-    background: var(--color-gray-5);
+    background: rgba(0, 0, 0, 0.1);
     padding: 2px 8px;
     border-radius: var(--border-radius-full);
+}
+
+.habit-item.completed .habit-weekly-progress {
+    background: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .habit-weekly-progress.goal-met {
@@ -531,10 +635,29 @@ body {
     color: white;
 }
 
+.habit-item.completed .habit-weekly-progress.goal-met {
+    background: rgba(255, 255, 255, 0.3);
+}
+
 .habit-actions {
     display: flex;
     align-items: center;
     color: var(--color-gray-3);
+}
+
+/* Streak info moved to the right side */
+.habit-streak-right {
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+    padding-left: var(--spacing-sm);
+}
+
+.habit-item.completed .habit-streak-right {
+    color: rgba(255, 255, 255, 0.9);
 }
 
 /* ========================================
@@ -709,6 +832,106 @@ body {
 
 .calendar-day.week-goal-met.completed {
     background: var(--calendar-habit-color, var(--color-primary));
+}
+
+/* Weekly habit tube styles */
+.calendar-week-row {
+    display: contents;
+}
+
+.calendar-week-row.has-weekly-activity {
+    position: relative;
+}
+
+.calendar-week-tube {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 32px;
+    background: var(--calendar-habit-faded, var(--color-primary-faded));
+    border-radius: var(--border-radius-md);
+    z-index: 0;
+}
+
+.calendar-day.in-active-week {
+    position: relative;
+    z-index: 1;
+}
+
+.calendar-day.in-active-week.completed {
+    background: var(--calendar-habit-color, var(--color-primary));
+    color: white;
+    border-radius: var(--border-radius-full);
+    z-index: 2;
+}
+
+/* Crown for completed weekly goals */
+.calendar-week-crown {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    z-index: 3;
+}
+
+/* Wrapper for weekly view in calendar */
+.calendar-grid-weekly {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.calendar-week-wrapper {
+    display: contents;
+}
+
+.calendar-week-container {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    position: relative;
+    padding: 6px 4px;
+    border-radius: var(--border-radius-md);
+}
+
+.calendar-week-container.has-activity {
+    background: var(--calendar-habit-faded, var(--color-primary-faded));
+    margin: 4px 0;
+}
+
+.calendar-week-container.goal-met {
+    position: relative;
+}
+
+.calendar-week-container.goal-met::before {
+    content: '👑';
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    z-index: 3;
+}
+
+/* Days inside active week tube */
+.calendar-week-container.has-activity .calendar-day {
+    background: transparent;
+}
+
+.calendar-week-container.has-activity .calendar-day.completed {
+    background: var(--calendar-habit-color, var(--color-primary));
+    color: white;
+    border-radius: var(--border-radius-full);
+}
+
+.calendar-week-container.has-activity .calendar-day.today:not(.completed) {
+    background: rgba(255, 255, 255, 0.5);
+    color: var(--color-primary);
+    font-weight: 700;
+    border-radius: var(--border-radius-full);
 }
 
 .monthly-stats {
