@@ -10,8 +10,18 @@ const APP_STATE = {
     habits: [],
     completions: {},
     currentDate: new Date(),
-    editingHabitId: null
+    currentMonth: new Date(),
+    currentTab: 'daily',
+    selectedHabitFilter: 'general',
+    editingHabitId: null,
+    settings: {
+        notifications: false,
+        reminderTime: '09:00',
+        weekStart: 1 // 1 = Monday
+    }
 };
+
+const STORAGE_KEYS_SETTINGS = 'habitTracker_settings';
 
 const STORAGE_KEYS = {
     HABITS: 'habitTracker_habits',
@@ -181,9 +191,10 @@ const DOM = {
         this.habitIconInput = document.getElementById('habit-icon');
         this.habitColorInput = document.getElementById('habit-color');
         this.habitFrequencyInput = document.getElementById('habit-frequency');
-        this.habitDaysInput = document.getElementById('habit-days');
+        this.habitDaysPerWeekInput = document.getElementById('habit-days-per-week');
         this.habitIdInput = document.getElementById('habit-id');
         this.daysSelector = document.getElementById('days-selector');
+        this.daysPerWeekPicker = document.getElementById('days-per-week-picker');
         this.btnCloseModal = document.getElementById('btn-close-modal');
         this.btnCancel = document.getElementById('btn-cancel');
         this.btnSave = document.getElementById('btn-save');
@@ -200,6 +211,40 @@ const DOM = {
 
         // Toast
         this.toastContainer = document.getElementById('toast-container');
+
+        // Tab Views
+        this.tabViews = {
+            daily: document.getElementById('tab-daily'),
+            calendar: document.getElementById('tab-calendar'),
+            stats: document.getElementById('tab-stats'),
+            settings: document.getElementById('tab-settings')
+        };
+        this.bottomNav = document.getElementById('bottom-nav');
+
+        // Calendar View
+        this.habitFilter = document.getElementById('habit-filter');
+        this.monthDisplay = document.getElementById('month-display');
+        this.calendarGrid = document.getElementById('calendar-grid');
+        this.btnPrevMonth = document.getElementById('btn-prev-month');
+        this.btnNextMonth = document.getElementById('btn-next-month');
+        this.statCompleted = document.getElementById('stat-completed');
+        this.statStreak = document.getElementById('stat-streak');
+        this.statRate = document.getElementById('stat-rate');
+
+        // Stats View
+        this.totalHabits = document.getElementById('total-habits');
+        this.totalCompletions = document.getElementById('total-completions');
+        this.currentStreak = document.getElementById('current-streak');
+        this.bestStreak = document.getElementById('best-streak');
+        this.weeklyChart = document.getElementById('weekly-chart');
+        this.performanceList = document.getElementById('performance-list');
+
+        // Settings View
+        this.settingNotifications = document.getElementById('setting-notifications');
+        this.settingReminderTime = document.getElementById('setting-reminder-time');
+        this.settingWeekStart = document.getElementById('setting-week-start');
+        this.btnExportData = document.getElementById('btn-export-data');
+        this.btnClearData = document.getElementById('btn-clear-data');
     }
 };
 
@@ -213,9 +258,9 @@ const HabitManager = {
             id: Utils.generateId(),
             name: habitData.name.trim(),
             icon: habitData.icon || '💪',
-            color: habitData.color || '#007AFF',
+            color: habitData.color || '#2d5f4f',
             frequency: habitData.frequency || 'daily',
-            days: habitData.days || [1, 2, 3, 4, 5],
+            daysPerWeek: habitData.daysPerWeek || 3,
             createdAt: new Date().toISOString(),
             order: APP_STATE.habits.length
         };
@@ -235,7 +280,7 @@ const HabitManager = {
                 icon: habitData.icon,
                 color: habitData.color,
                 frequency: habitData.frequency,
-                days: habitData.days
+                daysPerWeek: habitData.daysPerWeek
             };
             this.saveHabits();
             return APP_STATE.habits[index];
@@ -283,19 +328,45 @@ const HabitManager = {
         return APP_STATE.completions[dateKey]?.includes(habitId) || false;
     },
 
-    // Get habits for a specific date (based on frequency)
+    // Get habits for a specific date (all habits shown, weekly ones too)
     getHabitsForDate(date) {
-        const dayOfWeek = Utils.getDayOfWeek(date);
+        // All habits are shown every day now
+        // Weekly habits can be completed any day, goal is daysPerWeek per week
+        return APP_STATE.habits;
+    },
 
-        return APP_STATE.habits.filter(habit => {
-            if (habit.frequency === 'daily') {
-                return true;
+    // Get week start (Monday) for a given date
+    getWeekStart(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+        return new Date(d.setDate(diff));
+    },
+
+    // Get completions count for a habit in a specific week
+    getWeeklyCompletions(habitId, date) {
+        const weekStart = this.getWeekStart(date);
+        let count = 0;
+
+        for (let i = 0; i < 7; i++) {
+            const checkDate = new Date(weekStart);
+            checkDate.setDate(weekStart.getDate() + i);
+            const dateKey = Utils.formatDate(checkDate);
+            if (APP_STATE.completions[dateKey]?.includes(habitId)) {
+                count++;
             }
-            if (habit.frequency === 'weekly') {
-                return habit.days.includes(dayOfWeek);
-            }
-            return true;
-        });
+        }
+
+        return count;
+    },
+
+    // Check if weekly habit goal is met for a week
+    isWeeklyGoalMet(habitId, date) {
+        const habit = APP_STATE.habits.find(h => h.id === habitId);
+        if (!habit || habit.frequency !== 'weekly') return false;
+
+        const completions = this.getWeeklyCompletions(habitId, date);
+        return completions >= habit.daysPerWeek;
     },
 
     // Get completion stats for a date
@@ -351,6 +422,19 @@ const UI = {
         const isCompleted = HabitManager.isCompleted(habit.id);
         const streak = Utils.calculateStreak(habit.id, APP_STATE.completions);
 
+        // Weekly habit progress
+        let weeklyInfo = '';
+        if (habit.frequency === 'weekly') {
+            const weeklyCompletions = HabitManager.getWeeklyCompletions(habit.id, APP_STATE.currentDate);
+            const daysPerWeek = habit.daysPerWeek || 3;
+            const isGoalMet = weeklyCompletions >= daysPerWeek;
+            weeklyInfo = `
+                <span class="habit-weekly-progress ${isGoalMet ? 'goal-met' : ''}">
+                    ${weeklyCompletions}/${daysPerWeek} esta semana
+                </span>
+            `;
+        }
+
         return `
             <li class="habit-item ${isCompleted ? 'completed' : ''}" data-habit-id="${habit.id}">
                 <label class="habit-checkbox" style="--habit-color: ${habit.color}">
@@ -364,12 +448,15 @@ const UI = {
                 <div class="habit-icon">${habit.icon}</div>
                 <div class="habit-info">
                     <span class="habit-name">${this.escapeHTML(habit.name)}</span>
-                    ${streak > 0 ? `
-                        <span class="habit-streak">
-                            <span class="habit-streak-icon">🔥</span>
-                            ${streak} día${streak !== 1 ? 's' : ''}
-                        </span>
-                    ` : ''}
+                    <div class="habit-meta">
+                        ${streak > 0 ? `
+                            <span class="habit-streak">
+                                <span class="habit-streak-icon">🔥</span>
+                                ${streak} día${streak !== 1 ? 's' : ''}
+                            </span>
+                        ` : ''}
+                        ${weeklyInfo}
+                    </div>
                 </div>
                 <div class="habit-actions">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -397,7 +484,7 @@ const UI = {
         if (stats.percentage === 100) {
             DOM.progressRingFill.style.stroke = '#34C759'; // Green
         } else if (stats.percentage >= 50) {
-            DOM.progressRingFill.style.stroke = '#007AFF'; // Blue
+            DOM.progressRingFill.style.stroke = '#2d5f4f'; // Emerald
         } else if (stats.percentage > 0) {
             DOM.progressRingFill.style.stroke = '#FF9500'; // Orange
         } else {
@@ -430,15 +517,15 @@ const UI = {
             this.selectIcon(editHabit.icon);
             this.selectColor(editHabit.color);
             this.selectFrequency(editHabit.frequency);
-            this.selectDays(editHabit.days);
+            this.selectDaysPerWeek(editHabit.daysPerWeek || 3);
             DOM.habitIdInput.value = editHabit.id;
         } else {
             DOM.habitForm.reset();
             DOM.habitNameInput.value = '';
             this.selectIcon('💪');
-            this.selectColor('#007AFF');
+            this.selectColor('#2d5f4f');
             this.selectFrequency('daily');
-            this.selectDays([1, 2, 3, 4, 5]);
+            this.selectDaysPerWeek(3);
             DOM.habitIdInput.value = '';
         }
 
@@ -479,13 +566,12 @@ const UI = {
         DOM.daysSelector.style.display = frequency === 'weekly' ? 'block' : 'none';
     },
 
-    // Select days
-    selectDays(days) {
-        document.querySelectorAll('.day-option').forEach(btn => {
-            const day = parseInt(btn.dataset.day);
-            btn.classList.toggle('selected', days.includes(day));
+    // Select days per week
+    selectDaysPerWeek(daysPerWeek) {
+        DOM.daysPerWeekPicker.querySelectorAll('.days-per-week-option').forEach(btn => {
+            btn.classList.toggle('selected', parseInt(btn.dataset.days) === daysPerWeek);
         });
-        DOM.habitDaysInput.value = days.join(',');
+        DOM.habitDaysPerWeekInput.value = daysPerWeek;
     },
 
     // Show context menu
@@ -519,6 +605,411 @@ const UI = {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+};
+
+// ========================================
+// Tab Manager
+// ========================================
+const TabManager = {
+    switchTo(tabName) {
+        APP_STATE.currentTab = tabName;
+
+        // Update tab views
+        Object.keys(DOM.tabViews).forEach(key => {
+            DOM.tabViews[key].classList.toggle('active', key === tabName);
+        });
+
+        // Update nav items
+        DOM.bottomNav.querySelectorAll('.nav-item').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabName);
+        });
+
+        // Render content for the active tab
+        this.renderActiveTab();
+    },
+
+    renderActiveTab() {
+        switch (APP_STATE.currentTab) {
+            case 'daily':
+                UI.renderHabits();
+                break;
+            case 'calendar':
+                CalendarView.render();
+                break;
+            case 'stats':
+                StatsView.render();
+                break;
+            case 'settings':
+                SettingsView.render();
+                break;
+        }
+    }
+};
+
+// ========================================
+// Calendar View
+// ========================================
+const CalendarView = {
+    render() {
+        this.updateHabitFilter();
+        this.updateMonthDisplay();
+        this.renderCalendar();
+        this.updateMonthlyStats();
+        this.applyThemeColor();
+    },
+
+    updateHabitFilter() {
+        const currentValue = DOM.habitFilter.value;
+        DOM.habitFilter.innerHTML = '<option value="general">General (todos)</option>';
+
+        APP_STATE.habits.forEach(habit => {
+            const option = document.createElement('option');
+            option.value = habit.id;
+            option.textContent = `${habit.icon} ${habit.name}`;
+            DOM.habitFilter.appendChild(option);
+        });
+
+        // Restore selection if still valid
+        if (APP_STATE.habits.find(h => h.id === currentValue) || currentValue === 'general') {
+            DOM.habitFilter.value = currentValue;
+        }
+    },
+
+    updateMonthDisplay() {
+        const options = { year: 'numeric', month: 'long' };
+        const monthText = APP_STATE.currentMonth.toLocaleDateString('es-ES', options);
+        DOM.monthDisplay.textContent = monthText.charAt(0).toUpperCase() + monthText.slice(1);
+    },
+
+    renderCalendar() {
+        const year = APP_STATE.currentMonth.getFullYear();
+        const month = APP_STATE.currentMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const today = new Date();
+
+        // Get day of week for first day (adjust for Monday start)
+        let startDay = firstDay.getDay() - 1;
+        if (startDay < 0) startDay = 6;
+
+        let html = '';
+        const selectedHabit = APP_STATE.habits.find(h => h.id === APP_STATE.selectedHabitFilter);
+
+        // Previous month days
+        const prevMonthLastDay = new Date(year, month, 0).getDate();
+        for (let i = startDay - 1; i >= 0; i--) {
+            const day = prevMonthLastDay - i;
+            html += `<button class="calendar-day other-month" disabled>${day}</button>`;
+        }
+
+        // Current month days
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const date = new Date(year, month, day);
+            const dateKey = Utils.formatDate(date);
+            const isToday = Utils.formatDate(date) === Utils.formatDate(today);
+
+            let classes = ['calendar-day'];
+            if (isToday) classes.push('today');
+
+            if (APP_STATE.selectedHabitFilter === 'general') {
+                // General view - show if any habit was completed
+                const completedAny = APP_STATE.completions[dateKey]?.length > 0;
+                if (completedAny) classes.push('completed');
+            } else if (selectedHabit) {
+                const isCompleted = APP_STATE.completions[dateKey]?.includes(selectedHabit.id);
+
+                if (selectedHabit.frequency === 'weekly') {
+                    // Check if week goal is met
+                    const weekGoalMet = HabitManager.isWeeklyGoalMet(selectedHabit.id, date);
+                    if (weekGoalMet) classes.push('week-goal-met');
+                    if (isCompleted) classes.push('completed');
+                } else {
+                    if (isCompleted) classes.push('completed');
+                }
+            }
+
+            html += `<button class="${classes.join(' ')}" data-date="${dateKey}">${day}</button>`;
+        }
+
+        // Next month days
+        const totalCells = startDay + lastDay.getDate();
+        const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+        for (let day = 1; day <= remainingCells; day++) {
+            html += `<button class="calendar-day other-month" disabled>${day}</button>`;
+        }
+
+        DOM.calendarGrid.innerHTML = html;
+    },
+
+    updateMonthlyStats() {
+        const year = APP_STATE.currentMonth.getFullYear();
+        const month = APP_STATE.currentMonth.getMonth();
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const selectedHabit = APP_STATE.habits.find(h => h.id === APP_STATE.selectedHabitFilter);
+
+        let completed = 0;
+        let total = 0;
+        let currentStreak = 0;
+        let maxStreak = 0;
+        let tempStreak = 0;
+
+        for (let day = 1; day <= lastDay; day++) {
+            const date = new Date(year, month, day);
+            const dateKey = Utils.formatDate(date);
+
+            if (APP_STATE.selectedHabitFilter === 'general') {
+                const dayCompletions = APP_STATE.completions[dateKey]?.length || 0;
+                const habitsForDay = APP_STATE.habits.length;
+                if (habitsForDay > 0) {
+                    total += habitsForDay;
+                    completed += dayCompletions;
+                    if (dayCompletions === habitsForDay && habitsForDay > 0) {
+                        tempStreak++;
+                        maxStreak = Math.max(maxStreak, tempStreak);
+                    } else {
+                        tempStreak = 0;
+                    }
+                }
+            } else if (selectedHabit) {
+                total++;
+                if (APP_STATE.completions[dateKey]?.includes(selectedHabit.id)) {
+                    completed++;
+                    tempStreak++;
+                    maxStreak = Math.max(maxStreak, tempStreak);
+                } else {
+                    tempStreak = 0;
+                }
+            }
+        }
+
+        const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        DOM.statCompleted.textContent = completed;
+        DOM.statStreak.textContent = maxStreak;
+        DOM.statRate.textContent = `${rate}%`;
+    },
+
+    applyThemeColor() {
+        const selectedHabit = APP_STATE.habits.find(h => h.id === APP_STATE.selectedHabitFilter);
+
+        if (selectedHabit) {
+            document.documentElement.style.setProperty('--calendar-habit-color', selectedHabit.color);
+            document.documentElement.style.setProperty('--calendar-habit-faded', this.hexToRgba(selectedHabit.color, 0.2));
+            DOM.app.classList.add('app-themed');
+            document.documentElement.style.setProperty('--theme-color', selectedHabit.color);
+            document.documentElement.style.setProperty('--theme-color-faded', this.hexToRgba(selectedHabit.color, 0.15));
+        } else {
+            document.documentElement.style.removeProperty('--calendar-habit-color');
+            document.documentElement.style.removeProperty('--calendar-habit-faded');
+            DOM.app.classList.remove('app-themed');
+            document.documentElement.style.removeProperty('--theme-color');
+            document.documentElement.style.removeProperty('--theme-color-faded');
+        }
+    },
+
+    hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    },
+
+    changeMonth(delta) {
+        APP_STATE.currentMonth = new Date(
+            APP_STATE.currentMonth.getFullYear(),
+            APP_STATE.currentMonth.getMonth() + delta,
+            1
+        );
+        this.render();
+    }
+};
+
+// ========================================
+// Stats View
+// ========================================
+const StatsView = {
+    render() {
+        this.renderOverview();
+        this.renderWeeklyChart();
+        this.renderPerformanceList();
+    },
+
+    renderOverview() {
+        // Total habits
+        DOM.totalHabits.textContent = APP_STATE.habits.length;
+
+        // Total completions all time
+        let totalCompletions = 0;
+        Object.values(APP_STATE.completions).forEach(dayCompletions => {
+            totalCompletions += dayCompletions.length;
+        });
+        DOM.totalCompletions.textContent = totalCompletions;
+
+        // Current streak (days with all habits completed)
+        let currentStreak = 0;
+        let checkDate = new Date();
+        while (true) {
+            const dateKey = Utils.formatDate(checkDate);
+            const dayCompletions = APP_STATE.completions[dateKey]?.length || 0;
+            const habitsForDay = APP_STATE.habits.length;
+
+            if (habitsForDay > 0 && dayCompletions === habitsForDay) {
+                currentStreak++;
+                checkDate.setDate(checkDate.getDate() - 1);
+            } else {
+                // Check if today is incomplete but yesterday was complete
+                if (currentStreak === 0 && Utils.isToday(checkDate)) {
+                    checkDate.setDate(checkDate.getDate() - 1);
+                    continue;
+                }
+                break;
+            }
+        }
+        DOM.currentStreak.textContent = currentStreak;
+
+        // Best streak
+        let bestStreak = 0;
+        let tempStreak = 0;
+        const sortedDates = Object.keys(APP_STATE.completions).sort();
+        sortedDates.forEach(dateKey => {
+            const dayCompletions = APP_STATE.completions[dateKey]?.length || 0;
+            const habitsForDay = APP_STATE.habits.length;
+            if (habitsForDay > 0 && dayCompletions === habitsForDay) {
+                tempStreak++;
+                bestStreak = Math.max(bestStreak, tempStreak);
+            } else {
+                tempStreak = 0;
+            }
+        });
+        DOM.bestStreak.textContent = bestStreak;
+    },
+
+    renderWeeklyChart() {
+        const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+        const today = new Date();
+        let html = '';
+
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const dateKey = Utils.formatDate(date);
+            const dayCompletions = APP_STATE.completions[dateKey]?.length || 0;
+            const total = APP_STATE.habits.length || 1;
+            const percentage = Math.round((dayCompletions / total) * 100);
+            const dayIndex = (date.getDay() + 6) % 7; // Adjust to Monday=0
+
+            html += `
+                <div class="bar-item">
+                    <div class="bar" style="height: ${Math.max(4, percentage)}px"></div>
+                    <span class="bar-label">${days[dayIndex]}</span>
+                </div>
+            `;
+        }
+
+        DOM.weeklyChart.innerHTML = html;
+    },
+
+    renderPerformanceList() {
+        if (APP_STATE.habits.length === 0) {
+            DOM.performanceList.innerHTML = '<li class="empty-state-text">No hay hábitos para mostrar</li>';
+            return;
+        }
+
+        // Calculate completion rate for last 30 days
+        const today = new Date();
+        let html = '';
+
+        APP_STATE.habits.forEach(habit => {
+            let completed = 0;
+            let total = 30;
+
+            for (let i = 0; i < 30; i++) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateKey = Utils.formatDate(date);
+
+                if (APP_STATE.completions[dateKey]?.includes(habit.id)) {
+                    completed++;
+                }
+            }
+
+            const percentage = Math.round((completed / total) * 100);
+
+            html += `
+                <li class="performance-item">
+                    <div class="performance-icon">${habit.icon}</div>
+                    <div class="performance-info">
+                        <span class="performance-name">${UI.escapeHTML(habit.name)}</span>
+                        <div class="performance-bar-container">
+                            <div class="performance-bar" style="width: ${percentage}%; background: ${habit.color}"></div>
+                        </div>
+                    </div>
+                    <span class="performance-percent">${percentage}%</span>
+                </li>
+            `;
+        });
+
+        DOM.performanceList.innerHTML = html;
+    }
+};
+
+// ========================================
+// Settings View
+// ========================================
+const SettingsView = {
+    render() {
+        DOM.settingNotifications.checked = APP_STATE.settings.notifications;
+        DOM.settingReminderTime.value = APP_STATE.settings.reminderTime;
+        DOM.settingWeekStart.value = APP_STATE.settings.weekStart;
+    },
+
+    saveSettings() {
+        APP_STATE.settings = {
+            notifications: DOM.settingNotifications.checked,
+            reminderTime: DOM.settingReminderTime.value,
+            weekStart: parseInt(DOM.settingWeekStart.value)
+        };
+        Storage.save(STORAGE_KEYS_SETTINGS, APP_STATE.settings);
+    },
+
+    loadSettings() {
+        const saved = Storage.load(STORAGE_KEYS_SETTINGS, null);
+        if (saved) {
+            APP_STATE.settings = { ...APP_STATE.settings, ...saved };
+        }
+    },
+
+    exportData() {
+        const data = {
+            habits: APP_STATE.habits,
+            completions: APP_STATE.completions,
+            settings: APP_STATE.settings,
+            exportDate: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `habit-tracker-backup-${Utils.formatDate(new Date())}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        UI.showToast('Datos exportados correctamente');
+    },
+
+    clearAllData() {
+        if (confirm('¿Estás seguro de que quieres borrar TODOS los datos? Esta acción no se puede deshacer.')) {
+            if (confirm('¿Realmente seguro? Se perderán todos tus hábitos y progreso.')) {
+                APP_STATE.habits = [];
+                APP_STATE.completions = {};
+                HabitManager.saveHabits();
+                HabitManager.saveCompletions();
+                UI.showToast('Todos los datos han sido eliminados');
+                TabManager.switchTo('daily');
+            }
+        }
     }
 };
 
@@ -561,14 +1052,11 @@ const Events = {
             if (btn) UI.selectFrequency(btn.dataset.frequency);
         });
 
-        // Days picker
-        document.querySelector('.days-picker')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('.day-option');
+        // Days per week picker
+        DOM.daysPerWeekPicker?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.days-per-week-option');
             if (btn) {
-                btn.classList.toggle('selected');
-                const selectedDays = Array.from(document.querySelectorAll('.day-option.selected'))
-                    .map(b => parseInt(b.dataset.day));
-                DOM.habitDaysInput.value = selectedDays.join(',');
+                UI.selectDaysPerWeek(parseInt(btn.dataset.days));
             }
         });
 
@@ -600,6 +1088,30 @@ const Events = {
             e.preventDefault();
             this.deferredPrompt = e;
         });
+
+        // Bottom navigation
+        DOM.bottomNav.addEventListener('click', (e) => {
+            const navItem = e.target.closest('.nav-item');
+            if (navItem) {
+                TabManager.switchTo(navItem.dataset.tab);
+            }
+        });
+
+        // Calendar view events
+        DOM.habitFilter.addEventListener('change', (e) => {
+            APP_STATE.selectedHabitFilter = e.target.value;
+            CalendarView.render();
+        });
+
+        DOM.btnPrevMonth.addEventListener('click', () => CalendarView.changeMonth(-1));
+        DOM.btnNextMonth.addEventListener('click', () => CalendarView.changeMonth(1));
+
+        // Settings events
+        DOM.settingNotifications.addEventListener('change', () => SettingsView.saveSettings());
+        DOM.settingReminderTime.addEventListener('change', () => SettingsView.saveSettings());
+        DOM.settingWeekStart.addEventListener('change', () => SettingsView.saveSettings());
+        DOM.btnExportData.addEventListener('click', () => SettingsView.exportData());
+        DOM.btnClearData.addEventListener('click', () => SettingsView.clearAllData());
     },
 
     // Handle habit checkbox/item click
@@ -660,7 +1172,7 @@ const Events = {
             icon: DOM.habitIconInput.value,
             color: DOM.habitColorInput.value,
             frequency: DOM.habitFrequencyInput.value,
-            days: DOM.habitDaysInput.value.split(',').map(Number).filter(n => !isNaN(n))
+            daysPerWeek: parseInt(DOM.habitDaysPerWeekInput.value) || 3
         };
 
         if (!habitData.name.trim()) {
@@ -754,6 +1266,7 @@ const App = {
 
         // Load saved data
         HabitManager.loadFromStorage();
+        SettingsView.loadSettings();
 
         // Set up event listeners
         Events.init();
