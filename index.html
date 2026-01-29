@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Habits">
-    <meta name="theme-color" content="#007AFF">
+    <meta name="theme-color" content="#2d5f4f">
     <meta name="mobile-web-app-capable" content="yes">
 
     <!-- App Info -->
@@ -67,41 +67,234 @@
             </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Progress Summary -->
-            <section class="progress-section">
-                <div class="progress-ring-container">
-                    <svg class="progress-ring" width="120" height="120">
-                        <circle class="progress-ring-bg" cx="60" cy="60" r="52" />
-                        <circle class="progress-ring-fill" cx="60" cy="60" r="52" />
-                    </svg>
-                    <div class="progress-text">
-                        <span class="progress-percentage" id="progress-percentage">0%</span>
-                        <span class="progress-label">completado</span>
-                    </div>
-                </div>
-                <p class="progress-summary" id="progress-summary">0 de 0 hábitos</p>
-            </section>
-
-            <!-- Habits List -->
-            <section class="habits-section">
-                <ul class="habits-list" id="habits-list">
-                    <!-- Habits will be rendered here -->
-                </ul>
-
-                <!-- Empty State -->
-                <div class="empty-state" id="empty-state">
-                    <div class="empty-state-icon">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        <!-- Main Content Container -->
+        <main class="main-content" id="main-content">
+            <!-- Tab 1: Daily/Weekly View -->
+            <div class="tab-view active" id="tab-daily">
+                <!-- Progress Summary -->
+                <section class="progress-section">
+                    <div class="progress-ring-container">
+                        <svg class="progress-ring" width="120" height="120">
+                            <circle class="progress-ring-bg" cx="60" cy="60" r="52" />
+                            <circle class="progress-ring-fill" cx="60" cy="60" r="52" />
                         </svg>
+                        <div class="progress-text">
+                            <span class="progress-percentage" id="progress-percentage">0%</span>
+                            <span class="progress-label">completado</span>
+                        </div>
                     </div>
-                    <h2 class="empty-state-title">Sin hábitos aún</h2>
-                    <p class="empty-state-text">Toca el botón + para crear tu primer hábito</p>
+                    <p class="progress-summary" id="progress-summary">0 de 0 hábitos</p>
+                </section>
+
+                <!-- Habits List -->
+                <section class="habits-section">
+                    <ul class="habits-list" id="habits-list">
+                        <!-- Habits will be rendered here -->
+                    </ul>
+
+                    <!-- Empty State -->
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-state-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                            </svg>
+                        </div>
+                        <h2 class="empty-state-title">Sin hábitos aún</h2>
+                        <p class="empty-state-text">Toca el botón + para crear tu primer hábito</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Tab 2: Monthly Calendar View -->
+            <div class="tab-view" id="tab-calendar">
+                <!-- Habit Filter Dropdown -->
+                <div class="calendar-header">
+                    <select class="habit-filter-dropdown" id="habit-filter">
+                        <option value="general">General (todos)</option>
+                        <!-- Habits will be added dynamically -->
+                    </select>
                 </div>
-            </section>
+
+                <!-- Month Navigation -->
+                <div class="month-nav">
+                    <button class="month-nav-btn" id="btn-prev-month" aria-label="Mes anterior">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                    <span class="month-display" id="month-display">Enero 2026</span>
+                    <button class="month-nav-btn" id="btn-next-month" aria-label="Mes siguiente">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div class="calendar-container">
+                    <div class="calendar-weekdays">
+                        <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+                    </div>
+                    <div class="calendar-grid" id="calendar-grid">
+                        <!-- Calendar days will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Monthly Stats Summary -->
+                <div class="monthly-stats" id="monthly-stats">
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-completed">0</span>
+                        <span class="stat-label">Completados</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-streak">0</span>
+                        <span class="stat-label">Mejor racha</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-rate">0%</span>
+                        <span class="stat-label">Tasa éxito</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Statistics View -->
+            <div class="tab-view" id="tab-stats">
+                <h2 class="section-title">Estadísticas</h2>
+
+                <!-- Overall Stats -->
+                <div class="stats-overview">
+                    <div class="overview-card">
+                        <div class="overview-value" id="total-habits">0</div>
+                        <div class="overview-label">Hábitos totales</div>
+                    </div>
+                    <div class="overview-card">
+                        <div class="overview-value" id="total-completions">0</div>
+                        <div class="overview-label">Completados</div>
+                    </div>
+                    <div class="overview-card">
+                        <div class="overview-value" id="current-streak">0</div>
+                        <div class="overview-label">Racha actual</div>
+                    </div>
+                    <div class="overview-card">
+                        <div class="overview-value" id="best-streak">0</div>
+                        <div class="overview-label">Mejor racha</div>
+                    </div>
+                </div>
+
+                <!-- Weekly Chart -->
+                <div class="chart-section">
+                    <h3 class="chart-title">Últimos 7 días</h3>
+                    <div class="bar-chart" id="weekly-chart">
+                        <!-- Bars will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Habit Performance List -->
+                <div class="habit-performance">
+                    <h3 class="chart-title">Rendimiento por hábito</h3>
+                    <ul class="performance-list" id="performance-list">
+                        <!-- Performance items will be rendered here -->
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Tab 4: Settings View -->
+            <div class="tab-view" id="tab-settings">
+                <h2 class="section-title">Configuración</h2>
+
+                <div class="settings-group">
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <span class="settings-item-label">Notificaciones</span>
+                            <span class="settings-item-desc">Recordatorios diarios</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-notifications">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <span class="settings-item-label">Hora de recordatorio</span>
+                            <span class="settings-item-desc" id="reminder-time-display">09:00</span>
+                        </div>
+                        <input type="time" class="time-input" id="setting-reminder-time" value="09:00">
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <span class="settings-item-label">Inicio de semana</span>
+                            <span class="settings-item-desc">Primer día de la semana</span>
+                        </div>
+                        <select class="settings-select" id="setting-week-start">
+                            <option value="1">Lunes</option>
+                            <option value="0">Domingo</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <button class="settings-btn danger" id="btn-export-data">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Exportar datos
+                    </button>
+                    <button class="settings-btn danger" id="btn-clear-data">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Borrar todos los datos
+                    </button>
+                </div>
+
+                <div class="app-info">
+                    <p>Habit Tracker v1.0</p>
+                    <p class="app-info-subtle">Hecho con cariño</p>
+                </div>
+            </div>
         </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav" id="bottom-nav">
+            <button class="nav-item active" data-tab="daily" aria-label="Vista diaria">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span>Hoy</span>
+            </button>
+            <button class="nav-item" data-tab="calendar" aria-label="Calendario">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span>Calendario</span>
+            </button>
+            <button class="nav-item" data-tab="stats" aria-label="Estadísticas">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                <span>Estadísticas</span>
+            </button>
+            <button class="nav-item" data-tab="settings" aria-label="Configuración">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <span>Ajustes</span>
+            </button>
+        </nav>
 
         <!-- Modal: Add/Edit Habit -->
         <div class="modal" id="habit-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -144,7 +337,7 @@
                     <div class="form-group">
                         <label class="form-label" for="habit-color">Color</label>
                         <div class="color-picker" id="color-picker">
-                            <button type="button" class="color-option selected" data-color="#007AFF" style="background-color: #007AFF"></button>
+                            <button type="button" class="color-option selected" data-color="#2d5f4f" style="background-color: #2d5f4f"></button>
                             <button type="button" class="color-option" data-color="#34C759" style="background-color: #34C759"></button>
                             <button type="button" class="color-option" data-color="#FF9500" style="background-color: #FF9500"></button>
                             <button type="button" class="color-option" data-color="#FF3B30" style="background-color: #FF3B30"></button>
@@ -153,7 +346,7 @@
                             <button type="button" class="color-option" data-color="#5856D6" style="background-color: #5856D6"></button>
                             <button type="button" class="color-option" data-color="#00C7BE" style="background-color: #00C7BE"></button>
                         </div>
-                        <input type="hidden" id="habit-color" value="#007AFF">
+                        <input type="hidden" id="habit-color" value="#2d5f4f">
                     </div>
 
                     <div class="form-group">
@@ -166,17 +359,18 @@
                     </div>
 
                     <div class="form-group days-selector" id="days-selector" style="display: none;">
-                        <label class="form-label">Días de la semana</label>
-                        <div class="days-picker">
-                            <button type="button" class="day-option" data-day="0">D</button>
-                            <button type="button" class="day-option selected" data-day="1">L</button>
-                            <button type="button" class="day-option selected" data-day="2">M</button>
-                            <button type="button" class="day-option selected" data-day="3">X</button>
-                            <button type="button" class="day-option selected" data-day="4">J</button>
-                            <button type="button" class="day-option selected" data-day="5">V</button>
-                            <button type="button" class="day-option" data-day="6">S</button>
+                        <label class="form-label">Días por semana</label>
+                        <div class="days-per-week-picker" id="days-per-week-picker">
+                            <button type="button" class="days-per-week-option" data-days="1">1</button>
+                            <button type="button" class="days-per-week-option" data-days="2">2</button>
+                            <button type="button" class="days-per-week-option selected" data-days="3">3</button>
+                            <button type="button" class="days-per-week-option" data-days="4">4</button>
+                            <button type="button" class="days-per-week-option" data-days="5">5</button>
+                            <button type="button" class="days-per-week-option" data-days="6">6</button>
+                            <button type="button" class="days-per-week-option" data-days="7">7</button>
                         </div>
-                        <input type="hidden" id="habit-days" value="1,2,3,4,5">
+                        <p class="days-per-week-hint">Elige cuántos días a la semana quieres realizar este hábito</p>
+                        <input type="hidden" id="habit-days-per-week" value="3">
                     </div>
 
                     <input type="hidden" id="habit-id" value="">
