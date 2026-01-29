@@ -126,6 +126,34 @@ const Utils = {
             };
             navigator.vibrate(patterns[type] || 10);
         }
+    },
+
+    // Convert hex color to rgba
+    hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    },
+
+    // Get week start (Monday) for a given date
+    getWeekStart(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(d.setDate(diff));
+    },
+
+    // Get all days of the week for a given date
+    getWeekDays(date) {
+        const weekStart = this.getWeekStart(date);
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(weekStart);
+            d.setDate(weekStart.getDate() + i);
+            days.push(d);
+        }
+        return days;
     }
 };
 
@@ -220,6 +248,9 @@ const DOM = {
             settings: document.getElementById('tab-settings')
         };
         this.bottomNav = document.getElementById('bottom-nav');
+
+        // Week Days Navigation
+        this.weekDaysNav = document.getElementById('week-days-nav');
 
         // Calendar View
         this.habitFilter = document.getElementById('habit-filter');
@@ -415,12 +446,14 @@ const UI = {
 
         this.updateProgress();
         this.updateDateDisplay();
+        this.renderWeekDays();
     },
 
     // Create HTML for a single habit
     createHabitHTML(habit) {
         const isCompleted = HabitManager.isCompleted(habit.id);
         const streak = Utils.calculateStreak(habit.id, APP_STATE.completions);
+        const colorFaded = Utils.hexToRgba(habit.color, 0.15);
 
         // Weekly habit progress
         let weeklyInfo = '';
@@ -435,8 +468,16 @@ const UI = {
             `;
         }
 
+        // Streak info (moved to the right)
+        const streakInfo = streak > 0 ? `
+            <div class="habit-streak-right">
+                <span class="habit-streak-icon">🔥</span>
+                ${streak}
+            </div>
+        ` : '';
+
         return `
-            <li class="habit-item ${isCompleted ? 'completed' : ''}" data-habit-id="${habit.id}">
+            <li class="habit-item ${isCompleted ? 'completed' : ''}" data-habit-id="${habit.id}" style="--habit-color: ${habit.color}; --habit-color-faded: ${colorFaded}">
                 <label class="habit-checkbox" style="--habit-color: ${habit.color}">
                     <input type="checkbox" ${isCompleted ? 'checked' : ''} aria-label="Marcar ${habit.name} como completado">
                     <span class="habit-checkbox-visual">
@@ -449,15 +490,10 @@ const UI = {
                 <div class="habit-info">
                     <span class="habit-name">${this.escapeHTML(habit.name)}</span>
                     <div class="habit-meta">
-                        ${streak > 0 ? `
-                            <span class="habit-streak">
-                                <span class="habit-streak-icon">🔥</span>
-                                ${streak} día${streak !== 1 ? 's' : ''}
-                            </span>
-                        ` : ''}
                         ${weeklyInfo}
                     </div>
                 </div>
+                ${streakInfo}
                 <div class="habit-actions">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                         <polyline points="9 18 15 12 9 6"></polyline>
@@ -502,6 +538,34 @@ const UI = {
         } else {
             DOM.currentDateBtn.classList.remove('is-today');
         }
+    },
+
+    // Render week days navigation
+    renderWeekDays() {
+        const weekDays = Utils.getWeekDays(APP_STATE.currentDate);
+        const dayLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+        const today = new Date();
+        const currentDateStr = Utils.formatDate(APP_STATE.currentDate);
+
+        let html = '';
+        weekDays.forEach((day, index) => {
+            const dateStr = Utils.formatDate(day);
+            const isToday = Utils.formatDate(today) === dateStr;
+            const isSelected = currentDateStr === dateStr;
+
+            let classes = ['week-day-item'];
+            if (isToday) classes.push('today');
+            if (isSelected) classes.push('selected');
+
+            html += `
+                <button class="${classes.join(' ')}" data-date="${dateStr}">
+                    <span class="week-day-label">${dayLabels[index]}</span>
+                    <span class="week-day-number">${day.getDate()}</span>
+                </button>
+            `;
+        });
+
+        DOM.weekDaysNav.innerHTML = html;
     },
 
     // Show modal
@@ -693,53 +757,120 @@ const CalendarView = {
         let startDay = firstDay.getDay() - 1;
         if (startDay < 0) startDay = 6;
 
-        let html = '';
         const selectedHabit = APP_STATE.habits.find(h => h.id === APP_STATE.selectedHabitFilter);
+        const isWeeklyHabit = selectedHabit && selectedHabit.frequency === 'weekly';
+
+        // Build array of all days in the calendar view
+        const calendarDays = [];
 
         // Previous month days
         const prevMonthLastDay = new Date(year, month, 0).getDate();
         for (let i = startDay - 1; i >= 0; i--) {
             const day = prevMonthLastDay - i;
-            html += `<button class="calendar-day other-month" disabled>${day}</button>`;
+            const date = new Date(year, month - 1, day);
+            calendarDays.push({ day, date, isOtherMonth: true });
         }
 
         // Current month days
         for (let day = 1; day <= lastDay.getDate(); day++) {
             const date = new Date(year, month, day);
-            const dateKey = Utils.formatDate(date);
-            const isToday = Utils.formatDate(date) === Utils.formatDate(today);
-
-            let classes = ['calendar-day'];
-            if (isToday) classes.push('today');
-
-            if (APP_STATE.selectedHabitFilter === 'general') {
-                // General view - show if any habit was completed
-                const completedAny = APP_STATE.completions[dateKey]?.length > 0;
-                if (completedAny) classes.push('completed');
-            } else if (selectedHabit) {
-                const isCompleted = APP_STATE.completions[dateKey]?.includes(selectedHabit.id);
-
-                if (selectedHabit.frequency === 'weekly') {
-                    // Check if week goal is met
-                    const weekGoalMet = HabitManager.isWeeklyGoalMet(selectedHabit.id, date);
-                    if (weekGoalMet) classes.push('week-goal-met');
-                    if (isCompleted) classes.push('completed');
-                } else {
-                    if (isCompleted) classes.push('completed');
-                }
-            }
-
-            html += `<button class="${classes.join(' ')}" data-date="${dateKey}">${day}</button>`;
+            calendarDays.push({ day, date, isOtherMonth: false });
         }
 
         // Next month days
         const totalCells = startDay + lastDay.getDate();
         const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
         for (let day = 1; day <= remainingCells; day++) {
-            html += `<button class="calendar-day other-month" disabled>${day}</button>`;
+            const date = new Date(year, month + 1, day);
+            calendarDays.push({ day, date, isOtherMonth: true });
         }
 
+        // Group days into weeks
+        const weeks = [];
+        for (let i = 0; i < calendarDays.length; i += 7) {
+            weeks.push(calendarDays.slice(i, i + 7));
+        }
+
+        let html = '';
+
+        // For weekly habits, we need to check activity and goal for each week
+        weeks.forEach((week, weekIndex) => {
+            let weekHasActivity = false;
+            let weekGoalMet = false;
+            let weekCompletedDays = 0;
+
+            if (isWeeklyHabit) {
+                // Count completions for this calendar week
+                week.forEach(({ date, isOtherMonth }) => {
+                    if (!isOtherMonth) {
+                        const dateKey = Utils.formatDate(date);
+                        if (APP_STATE.completions[dateKey]?.includes(selectedHabit.id)) {
+                            weekCompletedDays++;
+                        }
+                    }
+                });
+
+                weekHasActivity = weekCompletedDays > 0;
+                weekGoalMet = weekCompletedDays >= (selectedHabit.daysPerWeek || 3);
+            }
+
+            // Determine container classes for weekly habits
+            let containerClasses = ['calendar-week-container'];
+            if (isWeeklyHabit && weekHasActivity) {
+                containerClasses.push('has-activity');
+                if (weekGoalMet) {
+                    containerClasses.push('goal-met');
+                }
+            }
+
+            if (isWeeklyHabit) {
+                html += `<div class="${containerClasses.join(' ')}">`;
+            }
+
+            // Render each day in the week
+            week.forEach(({ day, date, isOtherMonth }) => {
+                const dateKey = Utils.formatDate(date);
+                const isToday = Utils.formatDate(date) === Utils.formatDate(today);
+
+                let classes = ['calendar-day'];
+                if (isOtherMonth) {
+                    classes.push('other-month');
+                }
+                if (isToday) classes.push('today');
+
+                if (!isOtherMonth) {
+                    if (APP_STATE.selectedHabitFilter === 'general') {
+                        const completedAny = APP_STATE.completions[dateKey]?.length > 0;
+                        if (completedAny) classes.push('completed');
+                    } else if (selectedHabit) {
+                        const isCompleted = APP_STATE.completions[dateKey]?.includes(selectedHabit.id);
+
+                        if (isWeeklyHabit) {
+                            if (weekHasActivity) classes.push('in-active-week');
+                            if (isCompleted) classes.push('completed');
+                        } else {
+                            if (isCompleted) classes.push('completed');
+                        }
+                    }
+                }
+
+                const disabled = isOtherMonth ? 'disabled' : '';
+                html += `<button class="${classes.join(' ')}" data-date="${dateKey}" ${disabled}>${day}</button>`;
+            });
+
+            if (isWeeklyHabit) {
+                html += `</div>`;
+            }
+        });
+
         DOM.calendarGrid.innerHTML = html;
+
+        // Update grid style based on whether it's a weekly habit
+        if (isWeeklyHabit) {
+            DOM.calendarGrid.classList.add('calendar-grid-weekly');
+        } else {
+            DOM.calendarGrid.classList.remove('calendar-grid-weekly');
+        }
     },
 
     updateMonthlyStats() {
@@ -1022,9 +1153,20 @@ const Events = {
         DOM.btnAdd.addEventListener('click', () => UI.showModal());
 
         // Date navigation
-        DOM.btnPrevDay.addEventListener('click', () => this.changeDate(-1));
-        DOM.btnNextDay.addEventListener('click', () => this.changeDate(1));
+        DOM.btnPrevDay.addEventListener('click', () => this.changeWeek(-1));
+        DOM.btnNextDay.addEventListener('click', () => this.changeWeek(1));
         DOM.currentDateBtn.addEventListener('click', () => this.goToToday());
+
+        // Week days navigation
+        DOM.weekDaysNav.addEventListener('click', (e) => {
+            const dayItem = e.target.closest('.week-day-item');
+            if (dayItem) {
+                const dateStr = dayItem.dataset.date;
+                const [year, month, day] = dateStr.split('-').map(Number);
+                APP_STATE.currentDate = new Date(year, month - 1, day);
+                UI.renderHabits();
+            }
+        });
 
         // Modal events
         DOM.btnCloseModal.addEventListener('click', () => UI.hideModal());
@@ -1216,10 +1358,17 @@ const Events = {
         }
     },
 
-    // Change date
+    // Change date (single day)
     changeDate(delta) {
         APP_STATE.currentDate = new Date(APP_STATE.currentDate);
         APP_STATE.currentDate.setDate(APP_STATE.currentDate.getDate() + delta);
+        UI.renderHabits();
+    },
+
+    // Change week (7 days)
+    changeWeek(delta) {
+        APP_STATE.currentDate = new Date(APP_STATE.currentDate);
+        APP_STATE.currentDate.setDate(APP_STATE.currentDate.getDate() + (delta * 7));
         UI.renderHabits();
     },
 
